@@ -1,0 +1,467 @@
+const DATA_URL = "./assets/projects.json";
+const NODE_SIZE = 48;
+
+const svg = d3.select("#graph");
+const filterToggle = document.getElementById("filter-toggle");
+const filterMenu = document.getElementById("filter-menu");
+const emptyState = document.getElementById("empty-state");
+const nodeStatus = document.getElementById("node-status");
+const nodeStatusId = document.getElementById("node-status-id");
+const nodeStatusSeparator = document.getElementById("node-status-separator");
+const nodeStatusTitle = document.getElementById("node-status-title");
+
+const state = {
+  allProjects: [],
+  allFilterValues: {
+    keywords: [],
+    mediums: []
+  },
+  activeFilters: {
+    keywords: new Set(),
+    mediums: new Set()
+  },
+  filterMenuOpen: false,
+  simulation: null,
+  positionCache: new Map(),
+  viewportGroup: null,
+  zoomBehavior: null,
+  zoomTransform: d3.zoomIdentity
+};
+
+function normalizeProjectUrl(url) {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  const cleaned = url.replace(/^\.\//, "");
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+}
+
+function getProjectSlug(url) {
+  const fileName = url.split("/").pop() || "";
+  return fileName.replace(/\.html?$/i, "");
+}
+
+function buildIconPath(url) {
+  return `./assets/icons/${getProjectSlug(url)}.png`;
+}
+
+function enhanceProject(project) {
+  return {
+    ...project,
+    normalizedUrl: normalizeProjectUrl(project.url),
+    iconPath: buildIconPath(project.url)
+  };
+}
+
+function collectFilterValues(projects) {
+  const keywords = new Set();
+  const mediums = new Set();
+
+  projects.forEach((project) => {
+    project.attributes.keywords.forEach((keyword) => keywords.add(keyword));
+    project.attributes.mediums.forEach((medium) => mediums.add(medium));
+  });
+
+  state.allFilterValues.keywords = Array.from(keywords).sort((a, b) => a.localeCompare(b));
+  state.allFilterValues.mediums = Array.from(mediums).sort((a, b) => a.localeCompare(b));
+  state.activeFilters.keywords = new Set(state.allFilterValues.keywords);
+  state.activeFilters.mediums = new Set(state.allFilterValues.mediums);
+}
+
+function setNodeStatus(project) {
+  if (!project) {
+    nodeStatus.classList.add("is-empty");
+    nodeStatusId.textContent = "";
+    nodeStatusSeparator.textContent = "";
+    nodeStatusTitle.textContent = "---";
+    return;
+  }
+
+  nodeStatus.classList.remove("is-empty");
+  nodeStatusId.textContent = project.id;
+  nodeStatusSeparator.textContent = ":";
+  nodeStatusTitle.textContent = project.title;
+}
+
+function getVisibleProjects() {
+  return state.allProjects.filter((project) => {
+    const keywordsVisible = project.attributes.keywords.every((keyword) =>
+      state.activeFilters.keywords.has(keyword)
+    );
+    const mediumsVisible = project.attributes.mediums.every((medium) =>
+      state.activeFilters.mediums.has(medium)
+    );
+
+    return keywordsVisible && mediumsVisible;
+  });
+}
+
+function buildLinks(projects) {
+  const links = [];
+
+  for (let index = 0; index < projects.length; index += 1) {
+    for (let nextIndex = index + 1; nextIndex < projects.length; nextIndex += 1) {
+      const source = projects[index];
+      const target = projects[nextIndex];
+      const sourceKeywords = new Set(source.attributes.keywords);
+      const sharedKeyword = target.attributes.keywords.some((keyword) => sourceKeywords.has(keyword));
+
+      if (sharedKeyword) {
+        links.push({
+          source: source.id,
+          target: target.id
+        });
+      }
+    }
+  }
+
+  return links;
+}
+
+function getViewport() {
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight
+  };
+}
+
+function getGraphCenter(width, height) {
+  if (width < 900) {
+    return {
+      x: width * 0.56,
+      y: height * 0.68
+    };
+  }
+
+  return {
+    x: width * 0.73,
+    y: height * 0.72
+  };
+}
+
+function getSimulationNodes(projects, width, height) {
+  const center = getGraphCenter(width, height);
+
+  return projects.map((project) => {
+    const cachedPosition = state.positionCache.get(project.id);
+
+    return {
+      ...project,
+      x: cachedPosition?.x ?? center.x + (Math.random() - 0.5) * 220,
+      y: cachedPosition?.y ?? center.y + (Math.random() - 0.5) * 220
+    };
+  });
+}
+
+function setFilterMenuOpen(isOpen) {
+  state.filterMenuOpen = isOpen;
+  filterMenu.hidden = !isOpen;
+  filterToggle.setAttribute("aria-expanded", String(isOpen));
+  filterToggle.textContent = isOpen ? "– Filter" : "+ Filter";
+}
+
+function updateLoadedCount() {
+  const visibleProjects = getVisibleProjects();
+  const footer = document.createElement("div");
+  footer.className = "filter-footer";
+  footer.textContent = `Loaded: ${visibleProjects.length} node${visibleProjects.length === 1 ? "" : "s"}`;
+  return footer;
+}
+
+function createActionButton(label, onClick, isAccent = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "filter-action";
+  if (isAccent) {
+    button.classList.add("is-accent");
+  }
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function createTagButton(category, value) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tag-toggle";
+  button.dataset.category = category;
+  button.dataset.value = value;
+  button.textContent = value;
+
+  if (!state.activeFilters[category].has(value)) {
+    button.classList.add("is-inactive");
+  }
+
+  button.addEventListener("click", () => {
+    toggleFilterValue(category, value);
+  });
+
+  return button;
+}
+
+function renderFilterGroup(category, label) {
+  const section = document.createElement("section");
+  section.className = "filter-group";
+
+  const header = document.createElement("div");
+  header.className = "filter-group-header";
+
+  const heading = document.createElement("h2");
+  heading.textContent = label;
+
+  const actions = document.createElement("div");
+  actions.className = "filter-actions";
+  actions.append(
+    createActionButton("deselect all", () => {
+      state.activeFilters[category] = new Set();
+      updateGraph();
+      renderFilters();
+    }),
+    createActionButton("select all", () => {
+      state.activeFilters[category] = new Set(state.allFilterValues[category]);
+      updateGraph();
+      renderFilters();
+    }, true)
+  );
+
+  const tagList = document.createElement("div");
+  tagList.className = "tag-list";
+
+  state.allFilterValues[category].forEach((value, index) => {
+    tagList.appendChild(createTagButton(category, value));
+
+    if (index < state.allFilterValues[category].length - 1) {
+      const separator = document.createElement("span");
+      separator.className = "tag-separator";
+      separator.textContent = ",";
+      tagList.appendChild(separator);
+    }
+  });
+
+  header.append(heading, actions);
+  section.append(header, tagList);
+  return section;
+}
+
+function renderFilters() {
+  filterMenu.innerHTML = "";
+
+  const sections = document.createElement("div");
+  sections.className = "filter-sections";
+  sections.append(
+    renderFilterGroup("mediums", "Medium"),
+    renderFilterGroup("keywords", "Keyword")
+  );
+
+  filterMenu.append(sections, updateLoadedCount());
+}
+
+function toggleFilterValue(category, value) {
+  const nextValues = new Set(state.activeFilters[category]);
+
+  if (nextValues.has(value)) {
+    nextValues.delete(value);
+  } else {
+    nextValues.add(value);
+  }
+
+  state.activeFilters[category] = nextValues;
+  updateGraph();
+  renderFilters();
+}
+
+function initializeZoom() {
+  state.zoomBehavior = d3
+    .zoom()
+    .scaleExtent([0.35, 4])
+    .on("start", (event) => {
+      if (event.sourceEvent?.type === "mousedown") {
+        svg.classed("is-panning", true);
+      }
+    })
+    .on("zoom", (event) => {
+      state.zoomTransform = event.transform;
+
+      if (state.viewportGroup) {
+        state.viewportGroup.attr("transform", state.zoomTransform);
+      }
+    })
+    .on("end", () => {
+      svg.classed("is-panning", false);
+    });
+
+  svg.call(state.zoomBehavior).on("dblclick.zoom", null);
+}
+
+function drag(simulation) {
+  function dragStarted(event, datum) {
+    event.sourceEvent.stopPropagation();
+
+    if (!event.active) {
+      simulation.alphaTarget(0.22).restart();
+    }
+
+    datum.fx = datum.x;
+    datum.fy = datum.y;
+    setNodeStatus(datum);
+  }
+
+  function dragged(event, datum) {
+    datum.fx = event.x;
+    datum.fy = event.y;
+  }
+
+  function dragEnded(event, datum) {
+    if (!event.active) {
+      simulation.alphaTarget(0);
+    }
+
+    datum.fx = null;
+    datum.fy = null;
+  }
+
+  return d3.drag().on("start", dragStarted).on("drag", dragged).on("end", dragEnded);
+}
+
+function updateGraph() {
+  const { width, height } = getViewport();
+  const center = getGraphCenter(width, height);
+  const visibleProjects = getVisibleProjects();
+  const links = buildLinks(visibleProjects);
+  const nodes = getSimulationNodes(visibleProjects, width, height);
+
+  emptyState.hidden = visibleProjects.length !== 0;
+  setNodeStatus(null);
+
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+  svg.selectAll("*").remove();
+
+  if (state.simulation) {
+    state.simulation.stop();
+  }
+
+  const viewportGroup = svg.append("g").attr("class", "graph-viewport");
+  state.viewportGroup = viewportGroup;
+  state.viewportGroup.attr("transform", state.zoomTransform);
+
+  const linkSelection = viewportGroup
+    .append("g")
+    .attr("aria-hidden", "true")
+    .selectAll("line")
+    .data(links)
+    .join("line")
+    .attr("class", "link-line");
+
+  const nodeSelection = viewportGroup
+    .append("g")
+    .selectAll("g")
+    .data(nodes, (datum) => datum.id)
+    .join("g")
+    .attr("class", "node-group");
+
+  nodeSelection
+    .append("image")
+    .attr("class", "node-image")
+    .attr("href", (datum) => datum.iconPath)
+    .attr("x", -NODE_SIZE / 2)
+    .attr("y", -NODE_SIZE / 2)
+    .attr("width", NODE_SIZE)
+    .attr("height", NODE_SIZE)
+    .attr("preserveAspectRatio", "xMidYMid slice");
+
+  nodeSelection
+    .append("rect")
+    .attr("class", "node-frame")
+    .attr("x", -NODE_SIZE / 2)
+    .attr("y", -NODE_SIZE / 2)
+    .attr("width", NODE_SIZE)
+    .attr("height", NODE_SIZE);
+
+  nodeSelection
+    .on("mouseenter", function onMouseEnter(_, datum) {
+      setNodeStatus(datum);
+      d3.select(this).classed("is-hovered", true);
+    })
+    .on("mouseleave", function onMouseLeave() {
+      setNodeStatus(null);
+      d3.select(this).classed("is-hovered", false);
+    })
+    .on("click", (_, datum) => {
+      window.location.assign(datum.normalizedUrl);
+    });
+
+  state.simulation = createSimulation(nodes, links, center, linkSelection, nodeSelection);
+  nodeSelection.call(drag(state.simulation));
+}
+
+function createSimulation(nodes, links, center, linkSelection, nodeSelection) {
+  const simulation = d3
+    .forceSimulation(nodes)
+    .force(
+      "link",
+      d3
+        .forceLink(links)
+        .id((datum) => datum.id)
+        .distance(170)
+        .strength(0.28)
+    )
+    .force("charge", d3.forceManyBody().strength(-540))
+    .force("center", d3.forceCenter(center.x, center.y))
+    .force("collision", d3.forceCollide().radius(NODE_SIZE * 0.8));
+
+  simulation.on("tick", () => {
+    nodes.forEach((node) => {
+      state.positionCache.set(node.id, {
+        x: node.x,
+        y: node.y
+      });
+    });
+
+    linkSelection
+      .attr("x1", (datum) => datum.source.x)
+      .attr("y1", (datum) => datum.source.y)
+      .attr("x2", (datum) => datum.target.x)
+      .attr("y2", (datum) => datum.target.y);
+
+    nodeSelection.attr("transform", (datum) => `translate(${datum.x}, ${datum.y})`);
+  });
+
+  return simulation;
+}
+
+function handleResize() {
+  updateGraph();
+}
+
+function handleFilterToggle() {
+  setFilterMenuOpen(!state.filterMenuOpen);
+}
+
+async function init() {
+  try {
+    const response = await fetch(DATA_URL);
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+
+    const rawProjects = await response.json();
+    state.allProjects = rawProjects.map(enhanceProject);
+
+    collectFilterValues(state.allProjects);
+    initializeZoom();
+    renderFilters();
+    updateGraph();
+    setFilterMenuOpen(false);
+
+    filterToggle.addEventListener("click", handleFilterToggle);
+    window.addEventListener("resize", handleResize);
+  } catch (error) {
+    console.error(error);
+    emptyState.hidden = false;
+    emptyState.textContent = "The project data could not be loaded.";
+  }
+}
+
+window.addEventListener("DOMContentLoaded", init);

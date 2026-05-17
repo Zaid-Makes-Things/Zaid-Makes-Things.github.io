@@ -1,6 +1,52 @@
-<strong>zaid amer</strong>
-<br>
-<br>
-<a href="https://www.instagram.com/zedhasthoughts/">ig</a><br>
-<a href="https://substack.com/@zedhasthoughts">substack</a><br>
-<a href="https://www.linkedin.com/in/zaidamer/">linkedin</a>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zaid Amer</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="./assets/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" defer></script>
+    <script src="./assets/app.js" defer></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="home-link" href="/">Zaid Amer</a>
+
+        <div class="topbar-center">
+          <div class="status-row">
+            <button
+              id="filter-toggle"
+              class="filter-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="filter-menu"
+            >
+              + Filter
+            </button>
+
+            <div id="node-status" class="node-status is-empty" aria-live="polite">
+              <span class="node-status-label">Viewing node:</span>
+              <span id="node-status-id" class="node-status-id"></span>
+              <span id="node-status-separator" class="node-status-separator"></span>
+              <span id="node-status-title" class="node-status-title">---</span>
+            </div>
+          </div>
+
+          <aside id="filter-menu" class="filter-menu" aria-label="Project filters" hidden></aside>
+        </div>
+
+        <nav class="utility-nav" aria-label="Site links">
+          <a href="/now.html">Now</a>
+          <span>/</span>
+          <a href="/contact.html">Contact</a>
+        </nav>
+      </header>
+
+      <div id="empty-state" class="empty-state" hidden>No projects match the active filter.</div>
+
+      <svg id="graph" class="graph" role="img" aria-label="Node-based portfolio map"></svg>
+    </div>
+  </body>
+</html>

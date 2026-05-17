@@ -1,0 +1,29 @@
+[
+  {
+    "id": "eg6v1a",
+    "title": "FTS Eric Lombardi 001",
+    "url": "./projects/fts-eric-lombardi-001.html",
+    "attributes": {
+      "keywords": ["Politics", "Ontario", "Optimistic", "Serious", "Love"],
+      "mediums": ["Long-form video", "Interview"]
+    }
+  },
+  {
+    "id": "x9m2p4",
+    "title": "A twentysomethings idea of love",
+    "url": "./projects/a-twentysomethings-idea-of-love.html",
+    "attributes": {
+      "keywords": ["Love", "Joy", "Heartbreak", "Jealousy", "Gratitude", "twitterpated"],
+      "mediums": ["E-book", "Writing"]
+    }
+  },
+  {
+    "id": "123456",
+    "title": "Hiking monkey mountain",
+    "url": "./projects/hiking-monkey-mountain.html",
+    "attributes": {
+      "keywords": ["Awe", "Beauty", "Nature", "Animals"],
+      "mediums": ["Photography"]
+    }
+  }
+]
