@@ -654,11 +654,24 @@ button {
 }
 
 .link-line {
-  stroke: #000000;
-  stroke-width: 1.5px;
   stroke-opacity: 1;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+  fill: none;
+}
+
+.link-line--keyword {
+  stroke: #6a6a6a;
+  stroke-width: 1.2px;
+}
+
+.link-line--medium {
+  stroke: #000000;
+  stroke-width: 1.2px;
+}
+
+.link-line.is-highlighted {
+  stroke: var(--accent);
 }
 
 .node-group {

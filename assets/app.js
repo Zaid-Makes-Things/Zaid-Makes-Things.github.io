@@ -230,10 +230,17 @@ function buildLinks(projects) {
       const sharedKeyword = target.attributes.keywords.some((keyword) => sourceKeywords.has(keyword));
       const sharedMedium = target.attributes.mediums.some((medium) => sourceMediums.has(medium));
 
-      if (sharedKeyword || sharedMedium) {
+      if (sharedMedium) {
         links.push({
           source: source.id,
-          target: target.id
+          target: target.id,
+          relationship: "medium"
+        });
+      } else if (sharedKeyword) {
+        links.push({
+          source: source.id,
+          target: target.id,
+          relationship: "keyword"
         });
       }
     }
@@ -463,6 +470,13 @@ function drag(simulation) {
   return d3.drag().on("start", dragStarted).on("drag", dragged).on("end", dragEnded);
 }
 
+function isLinkConnectedToNode(link, nodeId) {
+  const sourceId = typeof link.source === "object" ? link.source.id : link.source;
+  const targetId = typeof link.target === "object" ? link.target.id : link.target;
+
+  return sourceId === nodeId || targetId === nodeId;
+}
+
 function updateGraph() {
   const { width, height } = getViewport();
   const center = getGraphCenter(width, height);
@@ -490,7 +504,7 @@ function updateGraph() {
     .selectAll("line")
     .data(links)
     .join("line")
-    .attr("class", "link-line");
+    .attr("class", (datum) => `link-line link-line--${datum.relationship}`);
 
   const nodeSelection = viewportGroup
     .append("g")
@@ -521,10 +535,12 @@ function updateGraph() {
     .on("mouseenter", function onMouseEnter(_, datum) {
       setNodeStatus(datum);
       d3.select(this).classed("is-hovered", true);
+      linkSelection.classed("is-highlighted", (linkDatum) => isLinkConnectedToNode(linkDatum, datum.id));
     })
     .on("mouseleave", function onMouseLeave() {
       setNodeStatus(null);
       d3.select(this).classed("is-hovered", false);
+      linkSelection.classed("is-highlighted", false);
     })
     .on("click", (_, datum) => {
       window.location.assign(datum.normalizedUrl);
