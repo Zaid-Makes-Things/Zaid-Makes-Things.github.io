@@ -226,9 +226,11 @@ function buildLinks(projects) {
       const source = projects[index];
       const target = projects[nextIndex];
       const sourceKeywords = new Set(source.attributes.keywords);
+      const sourceMediums = new Set(source.attributes.mediums);
       const sharedKeyword = target.attributes.keywords.some((keyword) => sourceKeywords.has(keyword));
+      const sharedMedium = target.attributes.mediums.some((medium) => sourceMediums.has(medium));
 
-      if (sharedKeyword) {
+      if (sharedKeyword || sharedMedium) {
         links.push({
           source: source.id,
           target: target.id
