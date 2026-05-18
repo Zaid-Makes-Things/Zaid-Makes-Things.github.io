@@ -1,5 +1,6 @@
 const DATA_URL = "./assets/projects.json";
 const NODE_SIZE = 48;
+const INITIAL_ZOOM_SCALE = 0.35;
 
 const svg = d3.select("#graph");
 const filterToggle = document.getElementById("filter-toggle");
@@ -25,7 +26,8 @@ const state = {
   positionCache: new Map(),
   viewportGroup: null,
   zoomBehavior: null,
-  zoomTransform: d3.zoomIdentity
+  zoomTransform: d3.zoomIdentity,
+  hasAppliedInitialZoom: false
 };
 
 function normalizeProjectUrl(url) {
@@ -138,6 +140,13 @@ function getGraphCenter(width, height) {
     x: width * 0.73,
     y: height * 0.72
   };
+}
+
+function getInitialZoomTransform(width, height) {
+  const translateX = (width - width * INITIAL_ZOOM_SCALE) / 2;
+  const translateY = (height - height * INITIAL_ZOOM_SCALE) / 2;
+
+  return d3.zoomIdentity.translate(translateX, translateY).scale(INITIAL_ZOOM_SCALE);
 }
 
 function getSimulationNodes(projects, width, height) {
@@ -274,7 +283,7 @@ function toggleFilterValue(category, value) {
 function initializeZoom() {
   state.zoomBehavior = d3
     .zoom()
-    .scaleExtent([0.35, 4])
+    .scaleExtent([0.2, 4])
     .on("start", (event) => {
       if (event.sourceEvent?.type === "mousedown") {
         svg.classed("is-panning", true);
@@ -292,6 +301,18 @@ function initializeZoom() {
     });
 
   svg.call(state.zoomBehavior).on("dblclick.zoom", null);
+}
+
+function applyInitialZoom() {
+  if (state.hasAppliedInitialZoom) {
+    return;
+  }
+
+  const { width, height } = getViewport();
+  const initialTransform = getInitialZoomTransform(width, height);
+
+  state.hasAppliedInitialZoom = true;
+  svg.call(state.zoomBehavior.transform, initialTransform);
 }
 
 function drag(simulation) {
@@ -451,6 +472,7 @@ async function init() {
 
     collectFilterValues(state.allProjects);
     initializeZoom();
+    applyInitialZoom();
     renderFilters();
     updateGraph();
     setFilterMenuOpen(false);
