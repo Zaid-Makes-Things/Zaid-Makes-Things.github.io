@@ -1,16 +1,18 @@
 [
   {
-    "id": "eg6v1a",
+    "id": "a9K2mQ",
     "title": "FTS Eric Lombardi 001",
+    "date": "2026-05",
     "url": "./projects/fts-eric-lombardi-001.html",
     "attributes": {
-      "keywords": ["Politics", "Ontario", "Optimistic", "Serious", "Love"],
+      "keywords": ["Politics", "Ontario", "Optimistic", "Serious"],
       "mediums": ["Long-form video", "Interview"]
     }
   },
   {
-    "id": "x9m2p4",
+    "id": "Z7xL1p",
     "title": "A twentysomethings idea of love",
+    "date": "2025-05",
     "url": "./projects/a-twentysomethings-idea-of-love.html",
     "attributes": {
       "keywords": ["Love", "Joy", "Heartbreak", "Jealousy", "Gratitude", "twitterpated"],
@@ -18,12 +20,43 @@
     }
   },
   {
-    "id": "123456",
+    "id": "m4B8cD",
     "title": "Hiking monkey mountain",
+    "date": "2025-10",
     "url": "./projects/hiking-monkey-mountain.html",
     "attributes": {
       "keywords": ["Awe", "Beauty", "Nature", "Animals"],
       "mediums": ["Photography"]
+    }
+  },
+  {
+    "id": "jK9lZ8",
+    "title": "Assorted photo poetry (2019)",
+    "date": "2019-11",
+    "url": "./projects/assorted-photo-poetry-2019.html",
+    "attributes": {
+      "keywords": ["Angsty", "Waterloo", "University", "Emotional"],
+      "mediums": ["Photography", "Poetry"]
+    }
+  },
+  {
+    "id": "dF2gH7",
+    "title": "London beach day",
+    "date": "2021-08",
+    "url": "./projects/london-beach-day.html",
+    "attributes": {
+      "keywords": ["London", "Life", "Beautiful"],
+      "mediums": ["Photography"]
+    }
+  },
+  {
+    "id": "oP4aS1",
+    "title": "On - Love",
+    "date": "2023-07",
+    "url": "./projects/on-love.html",
+    "attributes": {
+      "keywords": ["London", "Life", "Beautiful"],
+      "mediums": ["Poetry", "Drawing"]
     }
   }
 ]
