@@ -470,6 +470,17 @@ button {
   color: var(--ink);
 }
 
+.project-tag-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.08em;
+}
+
+.project-tag-link:hover,
+.project-tag-link:focus-visible {
+  color: var(--accent);
+}
+
 .project-break {
   height: 0.2rem;
 }

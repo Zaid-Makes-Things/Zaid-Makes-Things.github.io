@@ -27,7 +27,11 @@ const state = {
   viewportGroup: null,
   zoomBehavior: null,
   zoomTransform: d3.zoomIdentity,
-  hasAppliedInitialZoom: false
+  hasAppliedInitialZoom: false,
+  focusFilters: {
+    keywords: null,
+    mediums: null
+  }
 };
 
 function normalizeProjectUrl(url) {
@@ -71,6 +75,117 @@ function collectFilterValues(projects) {
   state.activeFilters.mediums = new Set(state.allFilterValues.mediums);
 }
 
+function getCategoryQueryKey(category) {
+  return category === "keywords" ? "keywords" : "mediums";
+}
+
+function getCategoryFocusQueryKey(category) {
+  return category === "keywords" ? "focusKeyword" : "focusMedium";
+}
+
+function getOrderedActiveValues(category) {
+  return state.allFilterValues[category].filter((value) => state.activeFilters[category].has(value));
+}
+
+function getEffectiveSelectedValues(category) {
+  if (state.focusFilters[category]) {
+    return new Set([state.focusFilters[category]]);
+  }
+
+  return new Set(state.activeFilters[category]);
+}
+
+function isFilterValueEffectivelySelected(category, value) {
+  return getEffectiveSelectedValues(category).has(value);
+}
+
+function resetFiltersToAll() {
+  state.activeFilters.keywords = new Set(state.allFilterValues.keywords);
+  state.activeFilters.mediums = new Set(state.allFilterValues.mediums);
+}
+
+function clearFocusFilters() {
+  state.focusFilters.keywords = null;
+  state.focusFilters.mediums = null;
+}
+
+function parseFilterListParam(params, paramName) {
+  if (!params.has(paramName)) {
+    return null;
+  }
+
+  const rawValue = params.get(paramName);
+
+  if (!rawValue) {
+    return [];
+  }
+
+  return rawValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function applyUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  resetFiltersToAll();
+  clearFocusFilters();
+
+  ["keywords", "mediums"].forEach((category) => {
+    const paramName = getCategoryQueryKey(category);
+    const parsedValues = parseFilterListParam(params, paramName);
+
+    if (parsedValues === null) {
+      return;
+    }
+
+    const allowedValues = new Set(state.allFilterValues[category]);
+    const matchingValues = parsedValues.filter((value) => allowedValues.has(value));
+    state.activeFilters[category] = new Set(matchingValues);
+  });
+
+  ["keywords", "mediums"].forEach((category) => {
+    const paramName = getCategoryFocusQueryKey(category);
+    const focusValue = params.get(paramName);
+
+    if (focusValue && state.allFilterValues[category].includes(focusValue)) {
+      state.focusFilters[category] = focusValue;
+    }
+  });
+}
+
+function updateUrlFromState() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("keywords");
+  url.searchParams.delete("mediums");
+  url.searchParams.delete("focusKeyword");
+  url.searchParams.delete("focusMedium");
+
+  ["keywords", "mediums"].forEach((category) => {
+    const activeValues = getOrderedActiveValues(category);
+
+    if (activeValues.length !== state.allFilterValues[category].length) {
+      url.searchParams.set(getCategoryQueryKey(category), activeValues.join(","));
+    }
+
+    if (state.focusFilters[category]) {
+      url.searchParams.set(getCategoryFocusQueryKey(category), state.focusFilters[category]);
+    }
+  });
+
+  history.replaceState({}, "", url);
+}
+
+function syncFilterState({ clearFocus = false } = {}) {
+  if (clearFocus) {
+    clearFocusFilters();
+  }
+
+  updateGraph();
+  renderFilters();
+  updateUrlFromState();
+}
+
 function setNodeStatus(project) {
   if (!project) {
     nodeStatus.classList.add("is-empty");
@@ -94,8 +209,12 @@ function getVisibleProjects() {
     const mediumsVisible = project.attributes.mediums.every((medium) =>
       state.activeFilters.mediums.has(medium)
     );
+    const focusKeywordVisible =
+      !state.focusFilters.keywords || project.attributes.keywords.includes(state.focusFilters.keywords);
+    const focusMediumVisible =
+      !state.focusFilters.mediums || project.attributes.mediums.includes(state.focusFilters.mediums);
 
-    return keywordsVisible && mediumsVisible;
+    return keywordsVisible && mediumsVisible && focusKeywordVisible && focusMediumVisible;
   });
 }
 
@@ -198,7 +317,7 @@ function createTagButton(category, value) {
   button.dataset.value = value;
   button.textContent = value;
 
-  if (!state.activeFilters[category].has(value)) {
+  if (!isFilterValueEffectivelySelected(category, value)) {
     button.classList.add("is-inactive");
   }
 
@@ -224,13 +343,11 @@ function renderFilterGroup(category, label) {
   actions.append(
     createActionButton("deselect all", () => {
       state.activeFilters[category] = new Set();
-      updateGraph();
-      renderFilters();
+      syncFilterState({ clearFocus: true });
     }),
     createActionButton("select all", () => {
       state.activeFilters[category] = new Set(state.allFilterValues[category]);
-      updateGraph();
-      renderFilters();
+      syncFilterState({ clearFocus: true });
     }, true)
   );
 
@@ -267,7 +384,7 @@ function renderFilters() {
 }
 
 function toggleFilterValue(category, value) {
-  const nextValues = new Set(state.activeFilters[category]);
+  const nextValues = getEffectiveSelectedValues(category);
 
   if (nextValues.has(value)) {
     nextValues.delete(value);
@@ -276,8 +393,7 @@ function toggleFilterValue(category, value) {
   }
 
   state.activeFilters[category] = nextValues;
-  updateGraph();
-  renderFilters();
+  syncFilterState({ clearFocus: true });
 }
 
 function initializeZoom() {
@@ -459,6 +575,12 @@ function handleFilterToggle() {
   setFilterMenuOpen(!state.filterMenuOpen);
 }
 
+function handlePopState() {
+  applyUrlState();
+  renderFilters();
+  updateGraph();
+}
+
 async function init() {
   try {
     const response = await fetch(DATA_URL);
@@ -471,6 +593,7 @@ async function init() {
     state.allProjects = rawProjects.map(enhanceProject);
 
     collectFilterValues(state.allProjects);
+    applyUrlState();
     initializeZoom();
     applyInitialZoom();
     renderFilters();
@@ -479,6 +602,7 @@ async function init() {
 
     filterToggle.addEventListener("click", handleFilterToggle);
     window.addEventListener("resize", handleResize);
+    window.addEventListener("popstate", handlePopState);
   } catch (error) {
     console.error(error);
     emptyState.hidden = false;
