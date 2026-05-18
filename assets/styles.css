@@ -431,6 +431,49 @@ button {
   gap: 1rem 1.5rem;
 }
 
+.project-page-main {
+  width: calc(100vw - 3rem);
+  margin: 0 1.5rem;
+  padding: 7.5rem 0 3.5rem;
+}
+
+.project-page-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.project-line,
+.project-label,
+.project-title-text,
+.project-value,
+.project-description {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.project-title-text {
+  font-weight: 700;
+}
+
+.project-label {
+  color: var(--muted);
+}
+
+.project-value,
+.project-description {
+  color: var(--ink);
+}
+
+.project-break {
+  height: 0.2rem;
+}
+
 .page-shell {
   min-height: 100vh;
   background: var(--paper);
@@ -656,6 +699,12 @@ button {
     padding-top: 9rem;
   }
 
+  .project-page-main {
+    width: calc(100vw - 3rem);
+    margin: 0 1.5rem;
+    padding-top: 9rem;
+  }
+
   .page-hero,
   .page-grid,
   .archive-list {
@@ -709,6 +758,13 @@ button {
 
   .page-main {
     width: calc(100vw - 2rem);
+    padding-top: 8.5rem;
+    padding-bottom: 2rem;
+  }
+
+  .project-page-main {
+    width: calc(100vw - 2rem);
+    margin: 0 1rem;
     padding-top: 8.5rem;
     padding-bottom: 2rem;
   }
